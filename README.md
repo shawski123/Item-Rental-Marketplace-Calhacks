@@ -79,8 +79,7 @@ npm start
 
 ## Contributors
 
-- [Your Name] - Developer
-- [Team Member Names if applicable]
+- [Ramon Ramos, Arame Zohrabyan, Michael Salamyan, ] - Developers
 
 ## License
 
