@@ -19,7 +19,7 @@ const items = [
     category: "Electronics",
     location: "Los Angeles, CA",
     price: 15,
-    rating: 4.6,
+    rating: 3.2,
     reviews: 93,
     imageUrl: "/images/speaker.jpg",
     description:
@@ -33,7 +33,7 @@ const items = [
     category: "Outdoor",
     location: "Portland, OR",
     price: 25,
-    rating: 4.7,
+    rating: 2.8,
     reviews: 64,
     imageUrl: "/images/tent.jpg",
     description:
@@ -61,7 +61,7 @@ const items = [
     category: "Outdoor",
     location: "Seattle, WA",
     price: 40,
-    rating: 4.8,
+    rating: 3.7,
     reviews: 81,
     imageUrl: "/images/kayak.jpg",
     description:
@@ -75,7 +75,7 @@ const items = [
     category: "Electronics",
     location: "Chicago, IL",
     price: 30,
-    rating: 4.5,
+    rating: 5.0,
     reviews: 58,
     imageUrl: "/images/projector.jpg",
     description:
@@ -89,7 +89,7 @@ const items = [
     category: "Electronics",
     location: "Austin, TX",
     price: 50,
-    rating: 4.9,
+    rating: 1.9,
     reviews: 146,
     imageUrl: "/images/gaming_console.jpg",
     description:

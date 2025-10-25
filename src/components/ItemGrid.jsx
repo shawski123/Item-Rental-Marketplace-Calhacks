@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { MapPin, Star, XCircle, CheckCircle, CreditCard, Receipt } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { MapPin, Star, XCircle, CheckCircle, CreditCard, Receipt, Filter } from "lucide-react";
 
 const ItemGrid = ({ items }) => {
   const [selectedItem, setSelectedItem] = useState(null);
@@ -25,7 +25,59 @@ const ItemGrid = ({ items }) => {
     userName: "",
   });
 
+  // Filter state
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [minRating, setMinRating] = useState(0);
+
   const today = new Date().toISOString().split("T")[0];
+
+  // Helper functions for reviews
+  const getItemReviews = (itemId) => {
+    return itemReviews[itemId] || [];
+  };
+
+  const getAverageRating = (itemId) => {
+    const reviews = getItemReviews(itemId);
+    if (reviews.length === 0) return null;
+    const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
+    return (sum / reviews.length).toFixed(1);
+  };
+
+  const getTotalReviews = (itemId) => {
+    return getItemReviews(itemId).length;
+  };
+
+  // Get unique categories from items
+  const categories = useMemo(() => {
+    const cats = [...new Set(items.map(item => item.category))];
+    return cats.sort();
+  }, [items]);
+
+  // Filter items based on selected filters
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      const reviews = itemReviews[item.id] || [];
+      let avgRating = null;
+      if (reviews.length > 0) {
+        const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
+        avgRating = sum / reviews.length;
+      }
+      const displayRating = parseFloat(avgRating || item.rating);
+      
+      const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(item.category);
+      const ratingMatch = displayRating >= minRating;
+      
+      return categoryMatch && ratingMatch;
+    });
+  }, [items, selectedCategories, minRating, itemReviews]);
+
+  const toggleCategory = (category) => {
+    setSelectedCategories(prev => 
+      prev.includes(category) 
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
 
   const calculateTotal = () => {
     if (!startDate || !endDate) return null;
@@ -92,21 +144,6 @@ const ItemGrid = ({ items }) => {
     alert("✅ Review submitted successfully!");
   };
 
-  const getItemReviews = (itemId) => {
-    return itemReviews[itemId] || [];
-  };
-
-  const getAverageRating = (itemId) => {
-    const reviews = getItemReviews(itemId);
-    if (reviews.length === 0) return null;
-    const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
-    return (sum / reviews.length).toFixed(1);
-  };
-
-  const getTotalReviews = (itemId) => {
-    return getItemReviews(itemId).length;
-  };
-
   const downloadReceipt = () => {
     if (!receiptData) return;
     const text = `
@@ -154,48 +191,120 @@ Thank you for using Boro!
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Boro</h1>
-
-      {/* Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {items.map((item) => {
-          const avgRating = getAverageRating(item.id);
-          const totalUserReviews = getTotalReviews(item.id);
-          const displayRating = avgRating || item.rating;
-          const displayReviewCount = item.reviews + totalUserReviews;
-
-          return (
-            <div
-              key={item.id}
-              onClick={() => {
-                setSelectedItem(item);
-                setStartDate("");
-                setEndDate("");
-                setShowPayment(false);
-                setShowReviews(false);
-              }}
-              className="bg-white shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition cursor-pointer"
-            >
-              <img
-                src={item.imageUrl}
-                alt={item.name}
-                className="w-full h-56 object-cover"
-              />
-              <div className="p-4">
-                <h2 className="font-semibold text-lg">{item.name}</h2>
-                <div className="text-gray-500 text-sm flex items-center gap-1">
-                  <MapPin size={14} /> {item.location}
-                </div>
-                <div className="text-sm text-yellow-500 flex items-center gap-1">
-                  <Star size={14} /> {displayRating}{" "}
-                  <span className="text-gray-400 text-xs">({displayReviewCount})</span>
-                </div>
-                <p className="mt-2 font-semibold text-gray-800">${item.price}/day</p>
-              </div>
+    <div className="flex min-h-screen bg-gray-50">
+      {/* Left Sidebar - Category Filter */}
+      <div className="w-64 bg-white shadow-sm p-6 sticky top-0 h-screen overflow-y-auto">
+        <div className="mb-6">
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Filter size={20} />
+            Filters
+          </h2>
+          
+          <div className="mb-6">
+            <h3 className="font-semibold text-gray-700 mb-3">Categories</h3>
+            <div className="space-y-2">
+              {categories.map(category => (
+                <label key={category} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedCategories.includes(category)}
+                    onChange={() => toggleCategory(category)}
+                    className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black"
+                  />
+                  <span className="text-sm text-gray-700">{category}</span>
+                </label>
+              ))}
             </div>
-          );
-        })}
+            {selectedCategories.length > 0 && (
+              <button
+                onClick={() => setSelectedCategories([])}
+                className="mt-3 text-xs text-blue-600 hover:underline"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 p-6">
+        {/* Header with Title and Rating Filter */}
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">Boro</h1>
+          
+          {/* Rating Filter */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-700 font-medium">Minimum Rating:</span>
+            <select
+              value={minRating}
+              onChange={(e) => setMinRating(Number(e.target.value))}
+              className="border rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              <option value={0}>All Ratings (0+)</option>
+              <option value={1}>1+ Stars</option>
+              <option value={2}>2+ Stars</option>
+              <option value={3}>3+ Stars</option>
+              <option value={4}>4+ Stars</option>
+              <option value={5}>5 Stars</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Results Count */}
+        <p className="text-sm text-gray-600 mb-4">
+          Showing {filteredItems.length} of {items.length} items
+        </p>
+
+        {/* Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredItems.map((item) => {
+            const avgRating = getAverageRating(item.id);
+            const totalUserReviews = getTotalReviews(item.id);
+            const displayRating = avgRating || item.rating;
+            const displayReviewCount = item.reviews + totalUserReviews;
+
+            return (
+              <div
+                key={item.id}
+                onClick={() => {
+                  setSelectedItem(item);
+                  setStartDate("");
+                  setEndDate("");
+                  setShowPayment(false);
+                  setShowReviews(false);
+                }}
+                className="bg-white shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition cursor-pointer"
+              >
+                <img
+                  src={item.imageUrl}
+                  alt={item.name}
+                  className="w-full h-56 object-cover"
+                />
+                <div className="p-4">
+                  <h2 className="font-semibold text-lg">{item.name}</h2>
+                  <div className="text-gray-500 text-sm flex items-center gap-1 mb-1">
+                    <MapPin size={14} /> {item.location}
+                  </div>
+                  <div className="text-sm text-yellow-500 flex items-center gap-1 mb-2">
+                    <Star size={14} /> {displayRating}{" "}
+                    <span className="text-gray-400 text-xs">({displayReviewCount})</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold text-gray-800">${item.price}/day</p>
+                    <span className="text-xs bg-gray-100 px-2 py-1 rounded">{item.category}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {filteredItems.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-gray-500">No items match your filters. Try adjusting your selection.</p>
+          </div>
+        )}
       </div>
 
       {/* Item detail modal */}
