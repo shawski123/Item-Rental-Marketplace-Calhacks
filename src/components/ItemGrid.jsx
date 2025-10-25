@@ -5,6 +5,7 @@ const ItemGrid = ({ items }) => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [showReviews, setShowReviews] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [paymentInfo, setPaymentInfo] = useState({
@@ -15,6 +16,14 @@ const ItemGrid = ({ items }) => {
     address: "",
   });
   const [receiptData, setReceiptData] = useState(null);
+  
+  // Review state
+  const [itemReviews, setItemReviews] = useState({});
+  const [newReview, setNewReview] = useState({
+    rating: 5,
+    comment: "",
+    userName: "",
+  });
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -39,12 +48,13 @@ const ItemGrid = ({ items }) => {
     setEndDate("");
     setShowPayment(false);
     setShowReceipt(false);
+    setShowReviews(false);
+    setNewReview({ rating: 5, comment: "", userName: "" });
   };
 
   const handlePaymentSubmit = (e) => {
     e.preventDefault();
 
-    // Generate fake transaction ID
     const transactionId = "TXN-" + Math.random().toString(36).substr(2, 9).toUpperCase();
 
     setReceiptData({
@@ -60,6 +70,41 @@ const ItemGrid = ({ items }) => {
 
     setShowPayment(false);
     setShowReceipt(true);
+  };
+
+  const handleReviewSubmit = (e) => {
+    e.preventDefault();
+    
+    const review = {
+      id: Date.now(),
+      rating: newReview.rating,
+      comment: newReview.comment,
+      userName: newReview.userName,
+      date: new Date().toLocaleDateString(),
+    };
+
+    setItemReviews({
+      ...itemReviews,
+      [selectedItem.id]: [...(itemReviews[selectedItem.id] || []), review],
+    });
+
+    setNewReview({ rating: 5, comment: "", userName: "" });
+    alert("✅ Review submitted successfully!");
+  };
+
+  const getItemReviews = (itemId) => {
+    return itemReviews[itemId] || [];
+  };
+
+  const getAverageRating = (itemId) => {
+    const reviews = getItemReviews(itemId);
+    if (reviews.length === 0) return null;
+    const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
+    return (sum / reviews.length).toFixed(1);
+  };
+
+  const getTotalReviews = (itemId) => {
+    return getItemReviews(itemId).length;
   };
 
   const downloadReceipt = () => {
@@ -89,51 +134,78 @@ Thank you for using Boro!
     window.URL.revokeObjectURL(url);
   };
 
+  const renderStars = (rating, interactive = false, onRatingChange = null) => {
+    return (
+      <div className="flex gap-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            size={interactive ? 24 : 16}
+            className={`${
+              star <= rating
+                ? "fill-yellow-500 text-yellow-500"
+                : "fill-gray-200 text-gray-200"
+            } ${interactive ? "cursor-pointer hover:scale-110 transition" : ""}`}
+            onClick={() => interactive && onRatingChange && onRatingChange(star)}
+          />
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold mb-6">Boro</h1>
 
       {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            onClick={() => {
-              setSelectedItem(item);
-              setStartDate("");
-              setEndDate("");
-              setShowPayment(false);
-            }}
-            className="bg-white shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition cursor-pointer"
-          >
-            <img
-              src={item.imageUrl}
-              alt={item.name}
-              className="w-full h-56 object-cover"
-            />
-            <div className="p-4">
-              <h2 className="font-semibold text-lg">{item.name}</h2>
-              <div className="text-gray-500 text-sm flex items-center gap-1">
-                <MapPin size={14} /> {item.location}
+        {items.map((item) => {
+          const avgRating = getAverageRating(item.id);
+          const totalUserReviews = getTotalReviews(item.id);
+          const displayRating = avgRating || item.rating;
+          const displayReviewCount = item.reviews + totalUserReviews;
+
+          return (
+            <div
+              key={item.id}
+              onClick={() => {
+                setSelectedItem(item);
+                setStartDate("");
+                setEndDate("");
+                setShowPayment(false);
+                setShowReviews(false);
+              }}
+              className="bg-white shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition cursor-pointer"
+            >
+              <img
+                src={item.imageUrl}
+                alt={item.name}
+                className="w-full h-56 object-cover"
+              />
+              <div className="p-4">
+                <h2 className="font-semibold text-lg">{item.name}</h2>
+                <div className="text-gray-500 text-sm flex items-center gap-1">
+                  <MapPin size={14} /> {item.location}
+                </div>
+                <div className="text-sm text-yellow-500 flex items-center gap-1">
+                  <Star size={14} /> {displayRating}{" "}
+                  <span className="text-gray-400 text-xs">({displayReviewCount})</span>
+                </div>
+                <p className="mt-2 font-semibold text-gray-800">${item.price}/day</p>
               </div>
-              <div className="text-sm text-yellow-500 flex items-center gap-1">
-                <Star size={14} /> {item.rating}{" "}
-                <span className="text-gray-400 text-xs">({item.reviews})</span>
-              </div>
-              <p className="mt-2 font-semibold text-gray-800">${item.price}/day</p>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Item detail modal */}
-      {selectedItem && !showPayment && !showReceipt && (
+      {selectedItem && !showPayment && !showReceipt && !showReviews && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto"
           onClick={handleClose}
         >
           <div
-            className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full relative"
+            className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full relative my-8"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -158,9 +230,20 @@ Thank you for using Boro!
               <MapPin size={16} className="mr-1" />
               {selectedItem.location}
             </div>
-            <div className="flex items-center text-yellow-500 text-sm mb-3">
-              <Star size={16} className="mr-1" /> {selectedItem.rating}{" "}
-              <span className="text-gray-400 ml-1">({selectedItem.reviews})</span>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center text-yellow-500 text-sm">
+                <Star size={16} className="mr-1" /> 
+                {getAverageRating(selectedItem.id) || selectedItem.rating}{" "}
+                <span className="text-gray-400 ml-1">
+                  ({selectedItem.reviews + getTotalReviews(selectedItem.id)})
+                </span>
+              </div>
+              <button
+                onClick={() => setShowReviews(true)}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                View Reviews
+              </button>
             </div>
 
             <div className="flex items-center gap-2 mb-4">
@@ -227,6 +310,117 @@ Thank you for using Boro!
               >
                 Proceed to Payment
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reviews Modal */}
+      {selectedItem && showReviews && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto"
+          onClick={() => setShowReviews(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl p-6 max-w-2xl w-full relative my-8 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+              onClick={() => setShowReviews(false)}
+            >
+              <XCircle size={24} />
+            </button>
+
+            <h2 className="text-2xl font-semibold mb-4">Reviews for {selectedItem.name}</h2>
+
+            {/* Average Rating Summary */}
+            <div className="bg-gray-50 rounded-xl p-4 mb-6">
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-gray-800">
+                    {getAverageRating(selectedItem.id) || selectedItem.rating}
+                  </div>
+                  <div className="flex justify-center mt-1">
+                    {renderStars(Math.round(getAverageRating(selectedItem.id) || selectedItem.rating))}
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    {selectedItem.reviews + getTotalReviews(selectedItem.id)} reviews
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Write a Review Form */}
+            <div className="border rounded-xl p-4 mb-6">
+              <h3 className="font-semibold text-lg mb-3">Write a Review</h3>
+              <form onSubmit={handleReviewSubmit}>
+                <div className="mb-3">
+                  <label className="block text-sm text-gray-700 mb-2">Your Rating</label>
+                  {renderStars(newReview.rating, true, (rating) => 
+                    setNewReview({ ...newReview, rating })
+                  )}
+                </div>
+
+                <div className="mb-3">
+                  <label className="block text-sm text-gray-700 mb-2">Your Name</label>
+                  <input
+                    type="text"
+                    value={newReview.userName}
+                    onChange={(e) => setNewReview({ ...newReview, userName: e.target.value })}
+                    placeholder="Enter your name"
+                    required
+                    className="w-full border rounded-lg p-2 text-sm"
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="block text-sm text-gray-700 mb-2">Your Review</label>
+                  <textarea
+                    value={newReview.comment}
+                    onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
+                    placeholder="Share your experience..."
+                    required
+                    rows={4}
+                    className="w-full border rounded-lg p-2 text-sm"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="bg-black text-white px-4 py-2 rounded-xl hover:bg-gray-800 transition w-full"
+                >
+                  Submit Review
+                </button>
+              </form>
+            </div>
+
+            {/* Existing Reviews */}
+            <div>
+              <h3 className="font-semibold text-lg mb-3">Customer Reviews</h3>
+              {getItemReviews(selectedItem.id).length === 0 ? (
+                <p className="text-gray-500 text-sm">No reviews yet. Be the first to review!</p>
+              ) : (
+                <div className="space-y-4">
+                  {getItemReviews(selectedItem.id).map((review) => (
+                    <div key={review.id} className="border rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-sm font-semibold">
+                            {review.userName.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{review.userName}</p>
+                            <p className="text-xs text-gray-500">{review.date}</p>
+                          </div>
+                        </div>
+                        {renderStars(review.rating)}
+                      </div>
+                      <p className="text-sm text-gray-700">{review.comment}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
